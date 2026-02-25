@@ -146,7 +146,10 @@ def generate_pptx(json_data, uploaded_images):
                             replace_text_in_shape(cell, replacements)
         process_shapes(slide.shapes)
 
-    slide_indices = {"A案": 5, "B案": 6, "C案": 7, "D案": 8, "E案": 9}
+    # ▼▼▼ 修正箇所①：画像を貼り付けるスライドの番号をA案〜C案だけにしました ▼▼▼
+    # ※Simple版のテンプレートに合わせて、ここの数字（スライド番号マイナス1）は適宜調整してください！
+    slide_indices = {"A案": 5, "B案": 6, "C案": 7}
+    
     margin_x, margin_y = Inches(0.5), Inches(1.5)
     cell_w, cell_h = Inches(3.0), Inches(2.0)
     cols = 3
@@ -219,7 +222,8 @@ with col1:
     st.markdown("各案の画像を枠内にドラッグ＆ドロップしてください。")
 
     uploaded_images = {}
-    plans = ["A案", "B案", "C案", "D案", "E案"]
+    # ▼▼▼ 修正箇所②：アップロード枠をA案〜C案の3つだけに減らしました ▼▼▼
+    plans = ["A案", "B案", "C案"]
 
     for plan in plans:
         # アコーディオンなしで直接アップローダーを表示
