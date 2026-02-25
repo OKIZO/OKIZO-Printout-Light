@@ -97,7 +97,7 @@ def generate_pptx(json_data, uploaded_images):
         objective_b = base_info.get("戦略的目的", "")
         required_element = base_info.get("必須要素", "")
         concept_raw = json_data.get("採用コンセプト", "")
-        tone_manner = json_data.get("トーン_and_マナー規定", "")
+        tone_manner_raw = json_data.get("トーン_and_マナー規定", "")
     else:
         product_name = json_data.get("productName", "")
         item_name = json_data.get("itemName", "")
@@ -109,20 +109,53 @@ def generate_pptx(json_data, uploaded_images):
         required_element = json_data.get("requiredElement", "")
         concept_raw = json_data.get("concept", "")
         tm_data = json_data.get("toneManner", [])
-        tone_manner = "\n".join(tm_data) if isinstance(tm_data, list) else tm_data
+        tone_manner_raw = "\n".join(tm_data) if isinstance(tm_data, list) else tm_data
 
-    # ▼ コンセプトの長文を「コンセプト名」と「説明」に自動で分割して綺麗に配置する処理
+    # ==========================================
+    # ▼ 文章を綺麗に切り分ける処理（パース） ▼
+    # ==========================================
+    
+    # 1. コンセプトの分割
     concept_title = concept_raw
     concept_desc = ""
+    concept_design = ""
     
-    if "説明：" in concept_raw:
-        parts = concept_raw.split("説明：", 1)
-        # 【案C】などの不要な文字も削ってスッキリさせます
-        concept_title = parts[0].replace("コンセプト名：", "").replace("【案A】", "").replace("【案B】", "").replace("【案C】", "").replace("【案D】", "").replace("【案E】", "").strip()
-        concept_desc = "説明：" + parts[1].strip()
-    elif "コンセプト名：" in concept_raw:
-        concept_title = concept_raw.replace("コンセプト名：", "").strip()
+    # 「デザイン示唆：」で切り離す
+    if "デザイン示唆：" in concept_title:
+        parts = concept_title.split("デザイン示唆：", 1)
+        concept_design = parts[1].strip()
+        concept_title = parts[0]
+        
+    # 「説明：」で切り離す
+    if "説明：" in concept_title:
+        parts = concept_title.split("説明：", 1)
+        concept_desc = parts[1].strip()
+        concept_title = parts[0]
+        
+    # コンセプト名の不要文字を消す
+    concept_title = concept_title.replace("コンセプト名：", "").replace("【案A】", "").replace("【案B】", "").replace("【案C】", "").replace("【案D】", "").replace("【案E】", "").strip()
 
+    # 2. トーン＆マナーの分割
+    tone_color = ""
+    tone_photo = ""
+    
+    # 「写真イラスト：」で切り離す
+    if "写真イラスト：" in tone_manner_raw:
+        parts = tone_manner_raw.split("写真イラスト：", 1)
+        tone_photo = parts[1].strip()
+        tone_color = parts[0].replace("カラー：", "").strip()
+    elif "写真イラスト" in tone_manner_raw: # コロンなし表記ゆれ対策
+        parts = tone_manner_raw.split("写真イラスト", 1)
+        tone_photo = parts[1].lstrip("：: ").strip()
+        tone_color = parts[0].replace("カラー：", "").strip()
+    else:
+        tone_color = tone_manner_raw.replace("カラー：", "").strip()
+
+    # ==========================================
+    # ▲ 文章の切り分け処理ここまで ▲
+    # ==========================================
+
+    # パワポに書き込むための置換辞書
     replacements = {
         "{{productName}}": product_name,
         "{{itemName}}": item_name,
@@ -132,9 +165,14 @@ def generate_pptx(json_data, uploaded_images):
         "{{objectiveA}}": objective_a,
         "{{objectiveB}}": objective_b,
         "{{requiredElement}}": required_element,
+        # ▼ 新しく切り分けたタグ
         "{{concept}}": concept_title,
         "{{conceptDescription}}": concept_desc,
-        "{{toneManner}}": tone_manner,
+        "{{conceptDesign}}": concept_design,
+        "{{toneColor}}": tone_color,
+        "{{tonePhoto}}": tone_photo,
+        # 古いテンプレート用の予備
+        "{{toneManner}}": tone_manner_raw,
     }
 
     for slide in prs.slides:
@@ -150,7 +188,7 @@ def generate_pptx(json_data, uploaded_images):
                             replace_text_in_shape(cell, replacements)
         process_shapes(slide.shapes)
 
-    # ▼ 画像のスライド位置を2ページ後ろにズラしました
+    # 画像のスライド位置
     slide_indices = {"A案": 5, "B案": 6, "C案": 7}
     
     margin_x, margin_y = Inches(0.5), Inches(1.5)
