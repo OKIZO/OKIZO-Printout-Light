@@ -86,7 +86,6 @@ def replace_text_in_shape(item, replacements):
 def generate_pptx(json_data, uploaded_images):
     prs = Presentation("template.pptx")
 
-    # ▼ 新しいJSON形式（日本語キー）と古い形式の両方に対応
     if "基本情報" in json_data:
         base_info = json_data.get("基本情報", {})
         product_name = base_info.get("製品名", "")
@@ -97,10 +96,9 @@ def generate_pptx(json_data, uploaded_images):
         objective_a = base_info.get("目的", "")
         objective_b = base_info.get("戦略的目的", "")
         required_element = base_info.get("必須要素", "")
-        concept = json_data.get("採用コンセプト", "")
+        concept_raw = json_data.get("採用コンセプト", "")
         tone_manner = json_data.get("トーン_and_マナー規定", "")
     else:
-        # 古い形式のフォールバック
         product_name = json_data.get("productName", "")
         item_name = json_data.get("itemName", "")
         spec = json_data.get("spec", "")
@@ -109,11 +107,22 @@ def generate_pptx(json_data, uploaded_images):
         objective_a = json_data.get("objectiveA", "")
         objective_b = json_data.get("objectiveB", "")
         required_element = json_data.get("requiredElement", "")
-        concept = json_data.get("concept", "")
+        concept_raw = json_data.get("concept", "")
         tm_data = json_data.get("toneManner", [])
         tone_manner = "\n".join(tm_data) if isinstance(tm_data, list) else tm_data
 
-    # 置換辞書の作成
+    # ▼ コンセプトの長文を「コンセプト名」と「説明」に自動で分割して綺麗に配置する処理
+    concept_title = concept_raw
+    concept_desc = ""
+    
+    if "説明：" in concept_raw:
+        parts = concept_raw.split("説明：", 1)
+        # 【案C】などの不要な文字も削ってスッキリさせます
+        concept_title = parts[0].replace("コンセプト名：", "").replace("【案A】", "").replace("【案B】", "").replace("【案C】", "").replace("【案D】", "").replace("【案E】", "").strip()
+        concept_desc = "説明：" + parts[1].strip()
+    elif "コンセプト名：" in concept_raw:
+        concept_title = concept_raw.replace("コンセプト名：", "").strip()
+
     replacements = {
         "{{productName}}": product_name,
         "{{itemName}}": item_name,
@@ -123,8 +132,8 @@ def generate_pptx(json_data, uploaded_images):
         "{{objectiveA}}": objective_a,
         "{{objectiveB}}": objective_b,
         "{{requiredElement}}": required_element,
-        "{{concept}}": concept,
-        "{{conceptDescription}}": "", # コンセプト内に説明も含まれるため空文字で消去
+        "{{concept}}": concept_title,
+        "{{conceptDescription}}": concept_desc,
         "{{toneManner}}": tone_manner,
     }
 
@@ -141,8 +150,8 @@ def generate_pptx(json_data, uploaded_images):
                             replace_text_in_shape(cell, replacements)
         process_shapes(slide.shapes)
 
-    # ▼ 簡易版のテンプレートに合わせて画像貼り付け先スライドを指定（A案=4枚目なのでインデックスは3）
-    slide_indices = {"A案": 3, "B案": 4, "C案": 5}
+    # ▼ 画像のスライド位置を2ページ後ろにズラしました
+    slide_indices = {"A案": 5, "B案": 6, "C案": 7}
     
     margin_x, margin_y = Inches(0.5), Inches(1.5)
     cell_w, cell_h = Inches(3.0), Inches(2.0)
@@ -230,7 +239,6 @@ with col2:
                     ppt_stream = generate_pptx(json_data, uploaded_images)
                     
                 st.success("🎉 PowerPointの生成が完了しました！")
-                # ファイル名を「アイテム名」から取得するように調整
                 item_name_from_json = json_data.get("基本情報", {}).get("アイテム名", "untitled")
                 st.download_button(
                     label="📥 企画書(.pptx) をダウンロード",
